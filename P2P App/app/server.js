@@ -38,6 +38,20 @@ app.post('/upload', async (req, res) => {
     }
 });
 
+app.get('/retrieve/:cid', async (req, res) => {
+    try {
+        const { cid } = req.params;
+        const chunks = [];
+        for await (const chunk of ipfs.cat(cid)) {
+            chunks.push(chunk);
+        }
+        res.send(Buffer.concat(chunks));
+    } catch (error) {
+        console.error('Error retrieving file:', error);
+        res.status(500).send('Error retrieving file');
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
