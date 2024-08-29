@@ -26,6 +26,18 @@ async function createNode() {
 
 createNode();
 
+app.post('/upload', async (req, res) => {
+    try {
+        const { file } = req.body;
+        if (!file) return res.status(400).send('No file provided');
+        const { cid } = await ipfs.add(Buffer.from(file, 'base64'));
+        res.json({ cid: cid.toString() });
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        res.status(500).send('Error uploading file');
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
