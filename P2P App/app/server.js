@@ -48,13 +48,31 @@ const queryDatabase = async (query, values) => {
     //         console.log('Connected to PostgreSQL database');
     //     });
     // }
-    const result = await dbClient.query(query, values);
+    let result;
+    if (values === null) {
+        result = await dbClient.query(query);
+    } else {
+        result = await dbClient.query(query, values);
+    }
     dbClient.end()
     .then(() => {
         console.log('Disconnected from PostgreSQL database');
     });
     return result;
 }
+
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Extract token from "Bearer <token>"
+
+    if (token == null) return res.sendStatus(401); // If no token, respond with 401 Unauthorized
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403); // If token is invalid, respond with 403 Forbidden
+        req.user = user; // Attach user info to the request object
+        next(); // Proceed to the next middleware or route handler
+    });
+};
 
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
@@ -112,7 +130,11 @@ app.post('/login', async (req, res) => {
         }
 
         // Generate a JWT token
-        const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, {
+        // const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, {
+        //     expiresIn: '1h', // Token expires in 1 hour
+        // });
+
+        const token = jwt.sign({ username: user.username }, JWT_SECRET, {
             expiresIn: '1h', // Token expires in 1 hour
         });
 
@@ -126,17 +148,30 @@ app.post('/login', async (req, res) => {
 
 
 
-app.post('/upload', async (req, res) => {
+app.post('/upload', authenticateToken, async (req, res) => {
 
-    // try {
-    //     const { file } = req.body;
-    //     if (!file) return res.status(400).send('No file provided');
-    //     const { cid } = await ipfs.add(Buffer.from(file, 'base64'));
-    //     res.json({ cid: cid.toString() });
-    // } catch (error) {
-    //     console.error('Error uploading file:', error);
-    //     res.status(500).send('Error uploading file');
-    // }
+    try {
+        const {file, filename} = req.body;
+        if (!file) return res.status(400).send('No file provided');
+        if (!filename) return res.status(400).send('No filename provided');
+        const { cid } = await ipfs.add(Buffer.from(file, 'base64'));
+
+        const username = req.user.username;
+        
+        const insertQuery = `
+        INSERT INTO video (owner, filename, cid)
+        SELECT id, $1, $2 FROM users WHERE username = $3
+        RETURNING (SELECT username FROM users WHERE id = video.owner) AS username, filename, cid;
+        `;
+        const values = [filename, cid.toString(), username];
+
+        const result = await queryDatabase(insertQuery, values)
+
+        res.json({ file: result.rows[0] });
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        res.status(500).send('Error uploading file');
+    }
 });
 
 app.get('/retrieve/:cid', async (req, res) => {
@@ -151,6 +186,52 @@ app.get('/retrieve/:cid', async (req, res) => {
         console.error('Error retrieving file:', error);
         res.status(500).send('Error retrieving file');
     }
+});
+
+app.get('/getOwners', authenticateToken, async (req, res) => {
+    try {
+        const query = `
+            SELECT DISTINCT u.username
+            FROM video v
+            JOIN users u ON v.owner = u.id;
+        `;
+
+        const result = await queryDatabase(query, null);
+        const users = [];
+        result.rows.forEach(user => {
+            users.push(user.username);
+        });
+        res.status(200).json({ owners: users });
+    } catch (error) {
+        console.error('Error retrieving owners:', error);
+        res.status(500).send('Error retrieving owners');
+    }
+});
+
+app.get('/getVideos/:owner', authenticateToken, async (req, res) => {
+    
+    try {
+        const { owner } =  req.params;
+        console.log(owner);
+
+        const query = `
+            SELECT filename 
+            FROM video
+            WHERE owner = (SELECT id FROM users WHERE username = $1);`
+        const values = [owner];
+
+        const result = await queryDatabase(query, values);
+
+        const videos = [];
+        result.rows.forEach(video => {
+            videos.push(video.filename);
+        });
+        
+        res.status(200).json({videos : videos})
+    } catch (error) {
+
+    }
+
 });
 
 app.listen(port, () => {
