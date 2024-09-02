@@ -1,0 +1,19 @@
+.input-field {
+    
+}
+
+.input-field-input {
+    display: block;
+    width: 80%;
+    margin: auto;
+    height: 2.8vh;
+    margin-bottom: 3vh;
+}
+
+.input-field-label {
+    display: block;
+    text-align: center;
+    width: 80%;
+    margin: auto;
+    margin-bottom: 0.6vh;
+}

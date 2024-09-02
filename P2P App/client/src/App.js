@@ -2,6 +2,7 @@ import './App.css';
 import VideoUploader from './VideoUploader/VideoUploader.tsx';
 import MenuBar from './Menu/MenuBar.tsx';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import LoginPage from './Auth/Login/LoginPage.tsx';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
                             <VideoUploader />
                         </header>
                     </div>} />
+            <Route path='/login' element={<LoginPage/>}/>
         </Routes>
     </Router>
 );
