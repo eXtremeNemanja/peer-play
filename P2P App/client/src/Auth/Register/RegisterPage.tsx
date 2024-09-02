@@ -1,51 +1,51 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import axios from 'axios';
-import './LoginPage.css'; // Optional: for custom styling
-import Button from '../../Components/Button/Button.tsx';
+import './RegisterPage.css'; // Optional: for custom styling
 import InputField from '../../Components/InputField/InputField.tsx';
+import Button from '../../Components/Button/Button.tsx';
 import { AuthService } from '../Service/AuthService.tsx';
 import { Link } from 'react-router-dom';
 
-// TypeScript types for component state
-interface LoginResponse {
-    token: string;
+// Define the types for the component state and response
+interface RegisterResponse {
+    message: string;
 }
 
-const LoginPage = () => {
+const RegisterPage = () => {
     const [username, setUsername] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [error, setError] = useState<string>('');
-    const [token, setToken] = useState<string>('');
-
-    const login = async (e:any) => {
-        e.preventDefault();
-        try {
-            const response = await AuthService.login({username, password});
-            localStorage.setItem('token', response.token);
-            // navigate('/campaigns');
-        } catch (error) {
-            console.error('Login failed:', error);
-        }
-    };
+    const [successMessage, setSuccessMessage] = useState<string>('');
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setError('');
-        setToken('');
+        setSuccessMessage('');
 
         try {
-            const response = await axios.post<LoginResponse>('http://localhost:3001/login', {
+            const response = await axios.post<RegisterResponse>('http://localhost:3001/register', {
                 username,
                 password,
             });
 
-            // Handle the response, e.g., save the token in local storage
-            setToken(response.data.token);
-            localStorage.setItem('authToken', response.data.token);
-            alert('Login successful!');
+            setSuccessMessage(response.data.message);
+            setUsername('');
+            setPassword('');
         } catch (err) {
-            console.error('Login failed:', err);
-            setError('Invalid username or password');
+            console.error('Registration failed:', err);
+            setError('Registration failed. Please try again.');
+        }
+    };
+
+    const register = async (e:any) => {
+        e.preventDefault();
+        try {
+            const response = await AuthService.register({username, password});
+            // localStorage.setItem('token', response.token);
+            // navigate('/campaigns');
+        } catch (error) {
+            console.error('Registration failed:', error);
+            setError('Registration failed. Please try again.');
         }
     };
 
@@ -58,9 +58,9 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="login-container">
-            <h1>Login</h1>
-            <form onSubmit={handleSubmit} className="login-form">
+        <div className="register-container">
+            <h1>Register</h1>
+            <form onSubmit={handleSubmit} className="register-form">
                 <div className="form-group">
                     <InputField value={username} onChange={handleUsernameChange} type="text" label="Username" id="username" required={true} />
                 </div>
@@ -68,15 +68,14 @@ const LoginPage = () => {
                     <InputField value={password} onChange={handlePasswordChange} type="password" label="Password" id="password" required={true} />
                 </div>
                 {error && <p className="error-message">{error}</p>}
-                {/* <button type="submit">Login</button> */}
-                <Button onClick={login} text={"Login"}/>
-                {token && <p className="success-message">Logged in successfully!</p>}
+                <Button onClick={register} text={"Register"}/>
+                {successMessage && <p className="success-message">{successMessage}</p>}
             </form>
             <p>
-                Don't have an account? <Link to="/register">Register here</Link>
+                Already have an account? <Link to="/login">Login here</Link>
             </p>
         </div>
     );
 }
 
-export default LoginPage;
+export default RegisterPage;
