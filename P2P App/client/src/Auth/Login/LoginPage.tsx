@@ -4,7 +4,7 @@ import './LoginPage.css'; // Optional: for custom styling
 import Button from '../../Components/Button/Button.tsx';
 import InputField from '../../Components/InputField/InputField.tsx';
 import { AuthService } from '../Service/AuthService.tsx';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 // TypeScript types for component state
 interface LoginResponse {
@@ -17,12 +17,14 @@ const LoginPage = () => {
     const [error, setError] = useState<string>('');
     const [token, setToken] = useState<string>('');
 
+    const navigate = useNavigate();
+    
     const login = async (e:any) => {
         e.preventDefault();
         try {
             const response = await AuthService.login({username, password});
             localStorage.setItem('token', response.token);
-            // navigate('/campaigns');
+            navigate('/video');
         } catch (error) {
             console.error('Login failed:', error);
         }

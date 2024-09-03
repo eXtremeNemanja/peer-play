@@ -14,7 +14,7 @@ const VideoRetriever = () => {
 
     const getUsers = async () => {
         const owners = await VideoService.getOnwers();
-        // console.log(owners.owners[0])
+        // console.log(owners);
         setSelectedOwner(owners.owners[0]);
         setOwners(owners.owners);
     };
