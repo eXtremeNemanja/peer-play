@@ -169,19 +169,38 @@ app.post('/upload', authenticateToken, async (req, res) => {
 
         res.json({ file: result.rows[0] });
     } catch (error) {
-        console.error('Error uploading file:', error);
-        res.status(500).send('Error uploading file');
+        if (error.code === '23505') {
+            console.error('Error uploading file:', error);
+            res.status(400).send('Video already exists');
+        } else {
+            console.error('Error uploading file:', error);
+            res.status(500).send('Error uploading file');
+        }
     }
 });
 
-app.get('/retrieve/:cid', async (req, res) => {
+app.post('/retrieve', async (req, res) => {
     try {
-        const { cid } = req.params;
-        const chunks = [];
-        for await (const chunk of ipfs.cat(cid)) {
-            chunks.push(chunk);
+        const { owner, videoName } = req.body;
+        const query = `
+            SELECT DISTINCT cid 
+            FROM video
+            WHERE owner = (SELECT id FROM users WHERE username = $1)
+            and filename = $2;`;
+        const values = [owner, videoName];
+
+        const result = await queryDatabase(query, values);
+        if (result.rows.length === 1) {
+
+            const cid = result.rows[0].cid;
+            const chunks = [];
+            for await (const chunk of ipfs.cat(cid)) {
+                chunks.push(chunk);
+            }
+            res.send(Buffer.concat(chunks));
+        } else {
+            res.status(404).send('Video not found');    
         }
-        res.send(Buffer.concat(chunks));
     } catch (error) {
         console.error('Error retrieving file:', error);
         res.status(500).send('Error retrieving file');
