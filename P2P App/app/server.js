@@ -179,7 +179,7 @@ app.post('/upload', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/retrieve', async (req, res) => {
+app.post('/retrieve', authenticateToken, async (req, res) => {
     try {
         const { owner, videoName } = req.body;
         const query = `
