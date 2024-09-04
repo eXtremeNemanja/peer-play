@@ -1,0 +1,19 @@
+.select-label {
+    display: block;
+    text-align: center;
+    width: 80%;
+    margin: auto;
+    margin-bottom: 0.6vh;
+}
+
+.select {
+    display: block;
+    width: 80%;
+    margin: auto;
+    margin-bottom: 3vh;
+    text-align: center;
+    background-color: #0ab7c744;
+    border-radius: 10px;
+    min-height: 5vh;
+    border: none;
+}
