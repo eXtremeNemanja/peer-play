@@ -3,14 +3,26 @@ import cors from 'cors';
 import * as IPFS from 'ipfs-core';
 import bodyParser from 'body-parser';
 import pg from 'pg';
-import { dbConfig, JWT_SECRET } from './config.js';
+import fs from 'fs';
+import { DB_CONFIG, ETHERS_PROVIDER, JWT_SECRET, COTRACT_ADDRESS, CONTRACT_ABI_PATH, WALLET_PRIVATE_KEYS } from './config.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import * as ethers from 'ethers';
 
 const app = express();
 const port = 3001;
 
 const { Client } = pg;
+
+const getAbi = async () => {
+    const data = await fs.promises.readFile(CONTRACT_ABI_PATH, 'utf8');
+    const abi = JSON.parse(data)['abi'];
+    return abi;
+}
+
+const provider = new ethers.JsonRpcProvider(ETHERS_PROVIDER);
+const signer = await provider.getSigner();
+const videoStreamingContract = new ethers.Contract(COTRACT_ADDRESS, await getAbi(), signer);
 
 app.use(cors());
 // app.use(express.json());
@@ -33,7 +45,7 @@ async function createNode() {
 createNode();
 
 const queryDatabase = async (query, values) => {
-    const dbClient = new Client(dbConfig);
+    const dbClient = new Client(DB_CONFIG);
     await dbClient
     .connect()
     .then(() => {
@@ -82,9 +94,14 @@ app.post('/register', async (req, res) => {
     }
 
     try {
-        const query = 'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *';
+        const numOfUsersQuery = 'SELECT COUNT(*) AS number_of_rows FROM users;';
+        const numOfUsersRes = await queryDatabase(numOfUsersQuery, null);
+        const numOfUsers = numOfUsersRes.rows[0].number_of_rows;
+        console.log(numOfUsers);
+
+        const query = 'INSERT INTO users (username, password, private_key) VALUES ($1, $2, $3) RETURNING *';
         const hashedPassword = await bcrypt.hash(password, 10);
-        const values = [username, hashedPassword];
+        const values = [username, hashedPassword, WALLET_PRIVATE_KEYS[numOfUsers % WALLET_PRIVATE_KEYS.length]];
 
         const result = await queryDatabase(query, values)
         
@@ -161,13 +178,22 @@ app.post('/upload', authenticateToken, async (req, res) => {
         const insertQuery = `
         INSERT INTO video (owner, filename, cid)
         SELECT id, $1, $2 FROM users WHERE username = $3
-        RETURNING (SELECT username FROM users WHERE id = video.owner) AS username, filename, cid;
+        RETURNING (SELECT username FROM users WHERE id = video.owner) AS username,
+        (SELECT private_key FROM users WHERE id = video.owner) AS private_key, filename, cid;
         `;
         const values = [filename, cid.toString(), username];
 
         const result = await queryDatabase(insertQuery, values)
 
-        res.json({ file: result.rows[0] });
+        const price = ethers.parseEther('0.1'); // Set a price for the video, adjust as needed
+        
+        const signer = new ethers.Wallet(result.rows[0].private_key, provider);
+        
+        const tx = await videoStreamingContract.connect(signer).uploadVideo(result.rows[0].cid, price);
+        await tx.wait(); // Wait for the transaction to be mined
+
+        // Respond to the client
+        res.json({ file: result.rows[0], transactionHash: tx.hash });
     } catch (error) {
         if (error.code === '23505') {
             console.error('Error uploading file:', error);
@@ -193,6 +219,14 @@ app.post('/retrieve', authenticateToken, async (req, res) => {
         if (result.rows.length === 1) {
 
             const cid = result.rows[0].cid;
+
+            try {
+                const video = await videoStreamingContract.videos(cid);
+                console.log('Video details:', video);
+            } catch (error) {
+                console.error('Error fetching video from contract:', error);
+            }
+
             const chunks = [];
             for await (const chunk of ipfs.cat(cid)) {
                 chunks.push(chunk);
