@@ -223,17 +223,12 @@ app.post('/retrieve', authenticateToken, async (req, res) => {
                 SELECT private_key
                 FROM users
                 WHERE username = $1;`;
-            const findUserKeyValues = [owner];
+            const findUserKeyValues = [req.user.username];
             const findUserKeyResult = await queryDatabase(findUserKeyQuery, findUserKeyValues);
             const userWallet = new ethers.Wallet(findUserKeyResult.rows[0].private_key, provider);
-            try {
-                const hasPurchased = await videoStreamingContract.hasPurchased(cid, userWallet.address);
-                console.log(hasPurchased);
-                const video = await videoStreamingContract.videos(cid);
-                console.log('Video details:', video);
-            } catch (error) {
-                console.error('Error fetching video from contract:', error);
-            }
+            
+            const hasPurchased = await videoStreamingContract.hasPurchased(cid, userWallet.address);
+            console.log(hasPurchased);
 
             const chunks = [];
             for await (const chunk of ipfs.cat(cid)) {
@@ -269,7 +264,7 @@ app.put('/purchaseVideo', authenticateToken, async (req, res) => {
                 SELECT private_key
                 FROM users
                 WHERE username = $1;`;
-            const findUserKeyValues = [owner];
+            const findUserKeyValues = [username];
             const findUserKeyResult = await queryDatabase(findUserKeyQuery, findUserKeyValues);
             const userWallet = new ethers.Wallet(findUserKeyResult.rows[0].private_key, provider);
 
