@@ -5,6 +5,7 @@ import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import LoginPage from './Auth/Login/LoginPage.tsx';
 import RegisterPage from './Auth/Register/RegisterPage.tsx';
 import VideoRetriever from './Video/VideoRetriever/VideoRetriever.tsx';
+import VideoPurchase from './Video/VideoPurchase/VideoPurchase.tsx';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route path='/login' element={<LoginPage/>}/>
             <Route path='/register' element={<RegisterPage/>}/>
             <Route path='/retrieve' element={<VideoRetriever/>}/>
+            <Route path='/purchase' element={<VideoPurchase/>}/>
         </Routes>
     </Router>
 );

@@ -31,7 +31,7 @@ const MenuBar = () => {
                 <Link to="/video" className='menu-option'><IoAddOutline className='icon'/></Link>
             </div>
             <div className="menu-options">
-                <Link to="/video" className='menu-option'><CiMoneyBill className='icon'/></Link>
+                <Link to="/purchase" className='menu-option'><CiMoneyBill className='icon'/></Link>
             </div>
             <div className='menu-options'>
                 <Link to="/login" className='menu-option'><CiLogin className='icon'/></Link>

@@ -1,0 +1,18 @@
+.selector {
+    width: 80%;
+    margin: 3vh auto;
+    padding: 1vh 1vw;
+    background-color: #0ab7c73e;
+    border-radius: 10px;
+}
+
+.video-player {
+    display: block;
+    width: 80%;
+    margin: auto;
+    margin-top: 1vh;
+    border-radius: 10px;
+    border: 3px solid #0ab6c7;
+    height: 50vh;
+    object-fit: fill;
+}

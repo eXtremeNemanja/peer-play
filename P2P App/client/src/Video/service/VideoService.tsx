@@ -1,5 +1,5 @@
 import axios from "axios"
-import { GET_OWNERS_URL, GET_VIDEOS_URL, RETRIEVE_VIDEO_URL } from "../../Api/Api.ts"
+import { GET_OWNERS_URL, GET_VIDEOS_URL, PURCHASE_VIDEO_URL, RETRIEVE_VIDEO_URL } from "../../Api/Api.ts"
 
 export const VideoService = {
     getOnwers : async () => {
@@ -29,6 +29,15 @@ export const VideoService = {
             return response.data;
         } catch (error) {
             return null;
+        }
+    },
+
+    purchaseVideo : async (owner : string, videoName : string) => {
+        try {
+            const response = await axios.put(PURCHASE_VIDEO_URL(), {owner, videoName});
+            return response.data();
+        } catch (error) {
+            return {};
         }
     }
 }
