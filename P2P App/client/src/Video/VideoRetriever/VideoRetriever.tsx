@@ -49,8 +49,12 @@ const VideoRetriever = () => {
 
     const retrieveVideo = async (e : any) => {
         const response = await VideoService.getVideo(selectedOwner, selectedVideo);
-        const url = URL.createObjectURL(response);
-        setVideoUrl(url);
+        if (response == null) {
+            alert("Video not purchased");
+        } else {
+            const url = URL.createObjectURL(response);
+            setVideoUrl(url);
+        }
     }
 
     return (

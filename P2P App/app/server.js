@@ -207,6 +207,8 @@ app.post('/upload', authenticateToken, async (req, res) => {
 
 app.post('/retrieve', authenticateToken, async (req, res) => {
     try {
+        const username = req.user.username;
+
         const { owner, videoName } = req.body;
         const findVideoQuery = `
             SELECT DISTINCT cid 
@@ -223,18 +225,21 @@ app.post('/retrieve', authenticateToken, async (req, res) => {
                 SELECT private_key
                 FROM users
                 WHERE username = $1;`;
-            const findUserKeyValues = [req.user.username];
+            const findUserKeyValues = [username];
             const findUserKeyResult = await queryDatabase(findUserKeyQuery, findUserKeyValues);
             const userWallet = new ethers.Wallet(findUserKeyResult.rows[0].private_key, provider);
             
             const hasPurchased = await videoStreamingContract.hasPurchased(cid, userWallet.address);
-            console.log(hasPurchased);
-
-            const chunks = [];
-            for await (const chunk of ipfs.cat(cid)) {
-                chunks.push(chunk);
+            if (username !== owner && !hasPurchased) {
+                res.status(404).send("Video not purchased");
             }
-            res.send(Buffer.concat(chunks));
+            else {
+                const chunks = [];
+                for await (const chunk of ipfs.cat(cid)) {
+                    chunks.push(chunk);
+                }
+                res.send(Buffer.concat(chunks));
+            }
         } else {
             res.status(404).send('Video not found');    
         }

@@ -21,9 +21,14 @@ export const VideoService = {
     },
 
     getVideo : async (owner : string, videoName : string) => {
-        const response = await axios.post(RETRIEVE_VIDEO_URL(), {owner, videoName}, {
+        try
+        {
+            const response = await axios.post(RETRIEVE_VIDEO_URL(), {owner, videoName}, {
             responseType : 'blob'
-        })
-        return response.data;
+            });
+            return response.data;
+        } catch (error) {
+            return null;
+        }
     }
 }
