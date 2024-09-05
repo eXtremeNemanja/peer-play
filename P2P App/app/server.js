@@ -208,19 +208,27 @@ app.post('/upload', authenticateToken, async (req, res) => {
 app.post('/retrieve', authenticateToken, async (req, res) => {
     try {
         const { owner, videoName } = req.body;
-        const query = `
+        const findVideoQuery = `
             SELECT DISTINCT cid 
             FROM video
             WHERE owner = (SELECT id FROM users WHERE username = $1)
             and filename = $2;`;
-        const values = [owner, videoName];
+        const findVideoValues = [owner, videoName];
 
-        const result = await queryDatabase(query, values);
-        if (result.rows.length === 1) {
+        const findVideoResult = await queryDatabase(findVideoQuery, findVideoValues);
+        if (findVideoResult.rows.length === 1) {
 
-            const cid = result.rows[0].cid;
-
+            const cid = findVideoResult.rows[0].cid;
+            const findUserKeyQuery = `
+                SELECT private_key
+                FROM users
+                WHERE username = $1;`;
+            const findUserKeyValues = [owner];
+            const findUserKeyResult = await queryDatabase(findUserKeyQuery, findUserKeyValues);
+            const userWallet = new ethers.Wallet(findUserKeyResult.rows[0].private_key, provider);
             try {
+                const hasPurchased = await videoStreamingContract.hasPurchased(cid, userWallet.address);
+                console.log(hasPurchased);
                 const video = await videoStreamingContract.videos(cid);
                 console.log('Video details:', video);
             } catch (error) {
@@ -234,6 +242,43 @@ app.post('/retrieve', authenticateToken, async (req, res) => {
             res.send(Buffer.concat(chunks));
         } else {
             res.status(404).send('Video not found');    
+        }
+    } catch (error) {
+        console.error('Error retrieving file:', error);
+        res.status(500).send('Error retrieving file');
+    }
+});
+
+app.put('/purchaseVideo', authenticateToken, async (req, res) => {
+    try {
+        const username = req.user.username;
+
+        const { owner, videoName } = req.body;
+        const findVideoQuery = `
+            SELECT DISTINCT cid 
+            FROM video
+            WHERE owner = (SELECT id FROM users WHERE username = $1)
+            and filename = $2;`;
+        const findVideoValues = [owner, videoName];
+
+        const findVideoResult = await queryDatabase(findVideoQuery, findVideoValues);
+        if (findVideoResult.rows.length === 1) {
+
+            const cid = findVideoResult.rows[0].cid;
+            const findUserKeyQuery = `
+                SELECT private_key
+                FROM users
+                WHERE username = $1;`;
+            const findUserKeyValues = [owner];
+            const findUserKeyResult = await queryDatabase(findUserKeyQuery, findUserKeyValues);
+            const userWallet = new ethers.Wallet(findUserKeyResult.rows[0].private_key, provider);
+
+            const tx = await videoStreamingContract.connect(userWallet).purchaseVideo(cid, {
+                value: ethers.parseEther("0.5"),
+            });
+            await tx.wait(); // Wait for the transaction to be mined
+
+            res.json({ transactionHash: tx.hash });
         }
     } catch (error) {
         console.error('Error retrieving file:', error);

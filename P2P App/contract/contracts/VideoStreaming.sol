@@ -14,6 +14,7 @@ contract VideoStreaming {
 
     mapping(string => Video) public videos;
     mapping(address => uint256) public balances;
+    mapping(string => mapping(address => bool)) public videoPurchasers;
 
     event VideoUploaded(string ipfsHash, address owner, uint256 price);
     event VideoPurchased(string ipfsHash, address buyer);
@@ -39,6 +40,9 @@ contract VideoStreaming {
         require(msg.value >= video.price, "Insufficient payment");
 
         balances[video.owner] += msg.value;
+
+        videoPurchasers[_ipfsHash][msg.sender] = true; // Record the purchase
+
         emit VideoPurchased(_ipfsHash, msg.sender);
     }
 
@@ -49,5 +53,13 @@ contract VideoStreaming {
 
         balances[msg.sender] = 0;
         payable(msg.sender).transfer(amount);
+    }
+
+    // Function to check if a user has purchased a video
+    function hasPurchased(
+        string memory _ipfsHash,
+        address _user
+    ) public view returns (bool) {
+        return videoPurchasers[_ipfsHash][_user];
     }
 }
