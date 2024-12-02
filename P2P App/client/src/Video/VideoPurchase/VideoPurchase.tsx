@@ -2,15 +2,14 @@ import React, { useEffect, useState } from "react";
 import { VideoService } from "../service/VideoService.tsx";
 import Button from "../../Components/Button/Button.tsx";
 import SelectField from "../../Components/SelectField/SelectField.tsx";
-import './VideoRetriever.css'
+import './VideoPurchase.css'
 
-const VideoRetriever = () => {
+const VideoPurchase = () => {
 
     const [owners, setOwners] = useState<string[]>([]);
     const [selectedOwner, setSelectedOwner] = useState("");
     const [videos, setVideos] = useState<string[]>([]);
     const [selectedVideo, setSelectedVideo] = useState("");
-    const [videoUrl, setVideoUrl] = useState('');
 
     const getUsers = async () => {
         const owners = await VideoService.getOnwers();
@@ -47,13 +46,10 @@ const VideoRetriever = () => {
         setSelectedVideo(e.target.value);
     }
 
-    const retrieveVideo = async (e : any) => {
-        const response = await VideoService.getVideo(selectedOwner, selectedVideo);
-        if (response == null) {
-            alert("Video not purchased");
-        } else {
-            const url = URL.createObjectURL(response);
-            setVideoUrl(url);
+    const purchaseVideo = async (e : any) => {
+        const response = await VideoService.purchaseVideo(selectedOwner, selectedVideo);
+        if (response.transactionHash !== undefined) {
+            alert("Video purchased successfully: " + response.transactionHash);
         }
     }
 
@@ -68,12 +64,11 @@ const VideoRetriever = () => {
             )}
 
             {selectedVideo !== '' && (
-                <Button onClick={retrieveVideo} text={"Retrieve video"} />
+                <Button onClick={purchaseVideo} text={"Purchase video"} />
             )}
 
-            {videoUrl && <video className="video-player" src={videoUrl} controls controlsList="nodownload" />}
         </div>
     );
 };
 
-export default VideoRetriever;
+export default VideoPurchase;
