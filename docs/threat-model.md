@@ -78,18 +78,55 @@ The communication methods between platform components and the flow of data are o
         - Register video ownership using a smart contract.
         - Process payments for video purchases.
 
-### High-level resources and threats
+## High-level resources and threats
 
 ...
 
-## Threat analysis
+### Smart Contracts
 
-...
+A smart contract is a piece of code stored and executed on a blockchain. It automatically creates agreements between parties. While smart contracts are powerful, they are prone to vulnerabilities. This is because once deployed, their code is immutable. If the code contains bugs, these cannot be fixed easily. Also, the transparency of blockchain data allows attackers to study the contract's behavior to identify its weaknesses. This makes smart contracts attractive targets for attackers, especially in platforms dealing with financial and ownership transactions. 
+
+#### [Higher severity threat] Smart Contract Reentrancy
+
+Reentrancy happens when smart contract allows external call (to another contract) before it has finished updating its internal state. If the external contract can call back into the original contract (either directly or indirectly), it can cause recursion as well as repeating certain operations before the internal state is updated.
+
+Reentrancy is common and severe vulnerability because it allows attackers to drain funds from smart contract. The famous DAO attack [1] (_Chapter 1.5.1_) used this flaw to steal over $50 million worth of Ether.
+
+Possible attacks include:
+- **Unsecured withdrawal function** - when attacker repeatedly invokes contract's `withdraw` function by exploiting the failure to update the user's balance before sending funds (example: each recursive call withdraws additional funds, causing financial losses)
+- **Reentrant token transfers** - when attacker uses malicious contract that interacts with token transfer function to use tokens by repeatedly triggering the transfer before balances are correctly updated.
+
+#### [Lower severity threat] Exceeding Block Gas Limit
+
+Every transaction executed on blockchain network consumes a certain amount of "gas," which represents computational effort. If a transaction requires more gas than the block gas limit, it will fail, effectively causing a denial of service (DoS). This threat is particularly relevant in contracts involving loops or complex computations.
+
+For example, a contract that processes multiple user requests in a single transaction might accidentally exceed the gas limit, creating the invalid transaction. Attackers can exploit this by sending data or inputs that lead to excessive gas usage, disrupting service availability.
+
+Possible attacks include:
+- **Massive input data** - when the attacker sends unusually large amount of input data to a smart contract, forcing it to use more gas than the block gas limit, causing transaction failure.
+- **Complex computation trigger** - when the attacker manipulates inputs to activate high-complexity paths in the contract logic,which will increase gas consumption and might surpass the gas limit.
+
+#### [Lower severity threat] Front-Running
+
+Front-running happens when attacker observes transaction in the blockchain mempool and submits their own transaction with a higher gas fee to ensure it is processed first. This exploits the order of transaction execution in blockchain systems. It is particularly problematic in decentralized finance (DeFi) platforms and marketplaces where timing is critical like auctions or token swaps.
+
+For example, in marketplace, attacker can see a bid for an asset and place a higher bid to purchase the asset before the original transaction is executed. This undermines fair competition and can lead to financial losses for users.
+
+Possible attacks include:
+- **DeFi trade exploitation** - when attacker observes a large pending trade in a DeFi protocol and submits a similar trade with a higher gas fee to profit from price movement caused by the original trade.
 
 ### ...
 
 ...
 
-### ...
+#### [Higher severity threat]
 
 ...
+
+#### [Lower severity threat]
+
+...
+
+## Reference
+
+[1] Ma, R., Gorzny, J., Zulkoski, E., Bak, K., & Mack, O. V. (2019). Fundamentals of Smart Contract Security. Momentum Press.
