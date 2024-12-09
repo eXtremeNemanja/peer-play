@@ -80,6 +80,53 @@ The communication methods between platform components and the flow of data are o
 
 ## High-level resources and threats
 
+### **IPFS**
+### [High-Level Threat] Unauthorized Access to Stored Video Content
+
+IPFS is a decentralized storage network. Without proper access controls, anyone with the CID (Content Identifier) can access files.
+
+#### [Low-Level Threat] Lack of Access Controls on Sensitive Data
+
+- IPFS does not natively provide encryption for stored data.
+- Files stored on IPFS are publicly accessible unless encrypted.
+
+**Attacks**:
+
+- **CID Discovery via Brute Force**: Attackers can generate or guess random CIDs to discover files.
+- **Man-in-the-Middle (MITM) Attack on CID Sharing**: Intercept CIDs during transmission (e.g., over unencrypted HTTP) to access the data.
+
+#### [Low-Level Threat] Exposure of Sensitive Metadata
+
+- IPFS peers can reveal metadata such as which node is hosting specific files.
+
+**Attacks**:
+
+- **Traffic Analysis**: Attacker observes IPFS network traffic to identify nodes hosting specific content.
+- **Node Enumeration**: Map the network to locate and target specific nodes hosting content.
+
+### [High-Level Threat] Denial of Service (DoS) Attacks
+
+IPFS depends on peer availability and bandwidth.
+
+#### [Low-Level Threat] Resource Exhaustion on Specific Nodes
+
+- Attackers target nodes to overwhelm them with requests.
+
+**Attacks**:
+
+- **Request Flooding**: Overload a node with repeated requests for files.
+- **File Pinning Attack**: Force nodes to store excessive data to exhaust storage resources.
+
+#### [Low-Level Threat] Network-Level Attacks
+
+- Attackers exploit vulnerabilities in the IPFS protocol.
+
+**Attacks**:
+- **Sybil Attack**: Create numerous fake nodes to disrupt file availability or tamper with routing.
+- **Routing Table Poisoning**: Inject malicious routes into the IPFS DHT (Distributed Hash Table).
+
+...
+
 ...
 
 ### Smart Contracts
