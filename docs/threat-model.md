@@ -83,17 +83,17 @@ The communication methods between platform components and the flow of data are o
 ### **IPFS**
 ### [High-Level Threat] Unauthorized Access to Stored Video Content
 
-IPFS is a decentralized storage network. Without proper access controls, anyone with the CID (Content Identifier) can access files.
+IPFS doesn't provide any access controls, so anyone with the CID (Content Identifier) can access files.
 
 #### [Low-Level Threat] Lack of Access Controls on Sensitive Data
 
-- IPFS does not natively provide encryption for stored data.
+- IPFS does not provide encryption for stored data.
 - Files stored on IPFS are publicly accessible unless encrypted.
 
 **Attacks**:
 
 - **CID Discovery via Brute Force**: Attackers can generate or guess random CIDs to discover files.
-- **Man-in-the-Middle (MITM) Attack on CID Sharing**: Intercept CIDs during transmission (e.g., over unencrypted HTTP) to access the data.
+- **Man-in-the-Middle (MITM) Attack on CID Sharing**: Intercept CIDs during transmission to access the data.
 
 #### [Low-Level Threat] Exposure of Sensitive Metadata
 
@@ -115,7 +115,6 @@ IPFS depends on peer availability and bandwidth.
 **Attacks**:
 
 - **Request Flooding**: Overload a node with repeated requests for files.
-- **File Pinning Attack**: Force nodes to store excessive data to exhaust storage resources.
 
 #### [Low-Level Threat] Network-Level Attacks
 
