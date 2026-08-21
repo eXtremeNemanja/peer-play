@@ -80,7 +80,7 @@ The communication methods between platform components and the flow of data are o
 
 ## High-level resources and threats
 
-### **IPFS**
+### IPFS
 ### [High-Level Threat] Unauthorized Access to Stored Video Content
 
 IPFS is a decentralized storage network. Without proper access controls, anyone with the CID (Content Identifier) can access files.
@@ -162,17 +162,6 @@ For example, in marketplace, attacker can see a bid for an asset and place a hig
 Possible attacks include:
 - **DeFi trade exploitation** - when attacker observes a large pending trade in a DeFi protocol and submits a similar trade with a higher gas fee to profit from price movement caused by the original trade.
 
-### ...
-
-...
-
-#### [Higher severity threat]
-
-...
-
-#### [Lower severity threat]
-
-...
 
 ## Reference
 
