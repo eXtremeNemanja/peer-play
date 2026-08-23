@@ -15,12 +15,27 @@ contract VideoStreaming {
     mapping(string => Video) public videos;
     mapping(address => uint256) public balances;
     mapping(string => mapping(address => bool)) public videoPurchasers;
+    
+    mapping(bytes32 => uint256) public commitBlock;
 
+    event VideoCommitted(bytes32 commitment, address committer);
     event VideoUploaded(string ipfsHash, address owner, uint256 price);
     event VideoPurchased(string ipfsHash, address buyer);
 
-    // Function to upload a new video
-    function uploadVideo(string memory _ipfsHash, uint256 _price) public {
+    // Publish a commitment that binds the upload to the caller's address
+    // The commitment is keccak256(cid, price, salt, msg.sender) and reveals nothing about the CID, so a mempool watcher learns nothing
+    function commitVideo(bytes32 _commitment) public {
+        require(commitBlock[_commitment] == 0, "Commitment exists");
+        commitBlock[_commitment] = block.number;
+        emit VideoCommitted(_commitment, msg.sender);
+    }
+
+    // The commitment is recomputed with msg.sender, so only the original committer can satisfy it
+    // A front-runner who copies the reveal computes a different commitment (their own address) that was never committed, so their transaction reverts.
+    function uploadVideo(string memory _ipfsHash, uint256 _price, bytes32 _salt) public {
+        bytes32 commitment = keccak256(abi.encodePacked(_ipfsHash, _price, _salt, msg.sender));
+        require(commitBlock[commitment] != 0, "No matching commit");
+        require(block.number > commitBlock[commitment], "Reveal too early");
         require(videos[_ipfsHash].owner == address(0), "Video already exists");
 
         videos[_ipfsHash] = Video({

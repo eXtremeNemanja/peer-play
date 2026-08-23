@@ -185,17 +185,24 @@ app.post('/upload', authenticateToken, async (req, res) => {
 
         const result = await queryDatabase(insertQuery, values)
 
-        // VULNERABLE: the price is taken from the (attacker-controlled) request body
-        // instead of a fixed 0.1 ETH. It is accepted as a raw wei value, so a huge
-        // price close to type(uint256).max can be set directly to trigger the batch
-        // overflow in purchaseVideos().
         const priceWei = (price !== undefined && price !== null)
             ? BigInt(price)
             : ethers.parseEther('0.1');
 
         const signer = new ethers.Wallet(result.rows[0].private_key, provider);
+        const cidStr = result.rows[0].cid;
 
-        const tx = await videoStreamingContract.connect(signer).uploadVideo(result.rows[0].cid, priceWei);
+        const salt = ethers.hexlify(ethers.randomBytes(32));
+        const commitment = ethers.solidityPackedKeccak256(
+            ['string', 'uint256', 'bytes32', 'address'],
+            [cidStr, priceWei, salt, signer.address]
+        );
+
+        const baseNonce = await provider.getTransactionCount(signer.address, 'latest');
+        const commitTx = await videoStreamingContract.connect(signer).commitVideo(commitment, { nonce: baseNonce });
+        await commitTx.wait();
+
+        const tx = await videoStreamingContract.connect(signer).uploadVideo(cidStr, priceWei, salt, { nonce: baseNonce + 1 });
         await tx.wait(); // Wait for the transaction to be mined
 
         // Respond to the client

