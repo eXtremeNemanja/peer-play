@@ -1,0 +1,34 @@
+# PostgreSQL for the peer-play backend.
+#
+# Credentials (put the password into app/config.js -> DB_CONFIG.password):
+#   host: localhost   port: 5432   user: postgres   password: peerplay   db: peerplay
+#
+# The schema in app/schema.sql is auto-loaded on FIRST start (while the data volume is
+# empty) via /docker-entrypoint-initdb.d. To reload the schema from scratch, reset the
+# volume:  docker compose down -v  &&  docker compose up -d
+#
+# Start:  docker compose up -d      (or run ./start-db.ps1 / ./start-db.sh)
+# Stop:   docker compose down       (keeps data)   |   down -v (wipes data)
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: peerplay-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: peerplay
+      POSTGRES_DB: peerplay
+    ports:
+      - "5432:5432"
+    volumes:
+      - peerplay-pgdata:/var/lib/postgresql/data
+      - ./app/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d peerplay"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  peerplay-pgdata:

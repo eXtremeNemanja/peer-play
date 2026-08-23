@@ -1,4 +1,4 @@
-# Scenario 3 — Denial of Service via block gas limit (`withdrawAllOwners()`)
+# Scenario 3 - Denial of Service via block gas limit (`withdrawAllOwners()`)
 
 > Execution guide. Follow the steps top to bottom. All paths are relative to
 > `P2P App/contract/`. Commands are copy-paste ready.
@@ -6,7 +6,7 @@
 This scenario adds a **push-based** payout function, `withdrawAllOwners()`, that
 loops over every owner and sends them their balance in a single transaction. A
 single malicious owner whose contract rejects incoming ETH makes the entire loop
-revert, so **nobody ever gets paid** — a denial-of-service that griefs all honest
+revert, so **nobody ever gets paid** - a denial-of-service that griefs all honest
 owners at once. (The same function also grows unbounded as owners are added, and can
 eventually exceed the block gas limit.)
 
@@ -24,14 +24,14 @@ Runs under `npx hardhat test` (in-process EVM). No local node required.
 
 ## 1. Concepts
 
-- **Push vs pull payments** — *push*: the contract sends funds to many recipients in
+- **Push vs pull payments** - *push*: the contract sends funds to many recipients in
   one transaction (a loop). *pull*: each recipient calls a function to withdraw their
   own funds. Push payments are fragile: they fail if *any* recipient rejects payment
   or costs too much gas.
-- **Block gas limit** — every transaction has a hard gas ceiling (the block gas
+- **Block gas limit** - every transaction has a hard gas ceiling (the block gas
   limit). A loop over an unbounded array can grow past it; once it does, the
-  transaction can never succeed — a permanent DoS.
-- **Failing recipient griefing** — `.transfer` / `.call` to a contract runs that
+  transaction can never succeed - a permanent DoS.
+- **Failing recipient griefing** - `.transfer` / `.call` to a contract runs that
   contract's `receive()`. If that `receive()` reverts, the sending loop reverts too,
   taking down the payout for *everyone* in the array.
 
@@ -88,7 +88,7 @@ contract VideoStreamingDosVuln {
 
 **Why it's exploitable:** `withdrawAllOwners()` calls `transfer` on every owner. If
 one owner is a contract that reverts on receiving ETH, that `transfer` reverts, which
-reverts the whole transaction — so no honest owner is ever paid. The attacker only
+reverts the whole transaction - so no honest owner is ever paid. The attacker only
 has to become an owner once (upload one video) to permanently jam the payout.
 
 ---
@@ -133,7 +133,7 @@ Create **`test/dos.attack.test.js`**:
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 3 — DoS via withdrawAllOwners (attack on vulnerable contract)", function () {
+describe("Scenario 3 - DoS via withdrawAllOwners (attack on vulnerable contract)", function () {
   it("one rejecting owner blocks the payout for everyone", async function () {
     const [deployer, alice, bob, buyer] = await ethers.getSigners();
 
@@ -178,7 +178,7 @@ npx hardhat test test/dos.attack.test.js
 **Expected output (successful attack):**
 
 ```
-  Scenario 3 — DoS via withdrawAllOwners (attack on vulnerable contract)
+  Scenario 3 - DoS via withdrawAllOwners (attack on vulnerable contract)
 Alice owed: 1.0 ETH
 Bob owed:   1.0 ETH
 Alice still owed after failed payout: 1.0 ETH  <-- DoS: never paid
@@ -197,7 +197,7 @@ can never be paid through it.
 ## 4. Mitigation
 
 Switch to a **pull-based** model: remove `withdrawAllOwners()` and let each owner
-withdraw their own balance. One owner rejecting ETH can then only hurt themselves —
+withdraw their own balance. One owner rejecting ETH can then only hurt themselves -
 it cannot block anyone else. (Using the Checks-Effects-Interactions pattern with a
 checked `.call` here also matches the reentrancy-safe `withdraw()`.)
 
@@ -242,7 +242,7 @@ contract VideoStreamingDosFixed {
 ```
 
 **What changed and why it works:**
-- The `owners` array and the `withdrawAllOwners()` loop are gone — no unbounded
+- The `owners` array and the `withdrawAllOwners()` loop are gone - no unbounded
   iteration, so nothing can exceed the block gas limit.
 - Each owner calls `withdraw()` for themselves. A malicious owner that reverts on
   receiving ETH only makes *their own* withdrawal fail; every honest owner is
@@ -259,7 +259,7 @@ owners can still withdraw normally.
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 3 — DoS (blocked by pull-based withdraw)", function () {
+describe("Scenario 3 - DoS (blocked by pull-based withdraw)", function () {
   it("a rejecting owner cannot stop honest owners from withdrawing", async function () {
     const [deployer, alice, bob, buyer] = await ethers.getSigners();
 
@@ -299,13 +299,13 @@ npx hardhat test test/dos.mitigation.test.js
 **Expected output (attack fails):**
 
 ```
-  Scenario 3 — DoS (blocked by pull-based withdraw)
+  Scenario 3 - DoS (blocked by pull-based withdraw)
 Alice balance credited: 0.99... ETH (approx, minus gas)
 Alice owed on-chain now: 0.0 ETH  <-- paid
     ✔ a rejecting owner cannot stop honest owners from withdrawing
 ```
 
-Alice is paid despite the rejecting owner being present — the DoS no longer works.
+Alice is paid despite the rejecting owner being present - the DoS no longer works.
 
 > 📸 **Screenshot here (failed attack):** capture the terminal showing Alice
 > successfully withdrawing ("Alice owed on-chain now: 0.0 ETH <-- paid").

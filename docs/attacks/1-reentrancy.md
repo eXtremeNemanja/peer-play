@@ -1,11 +1,11 @@
-# Scenario 1 — Reentrancy on `withdraw()`
+# Scenario 1 - Reentrancy on `withdraw()`
 
 > Execution guide. Follow the steps top to bottom. All paths are relative to
 > `P2P App/contract/`. Commands are copy-paste ready.
 
 This scenario demonstrates the classic reentrancy vulnerability (the same class as
 the 2016 DAO hack) against the `withdraw()` function of `VideoStreaming`. An
-attacker drains **the entire contract balance** — including other owners' earnings —
+attacker drains **the entire contract balance** - including other owners' earnings -
 even though they were only owed a small amount.
 
 ## Prerequisites (once)
@@ -16,24 +16,24 @@ npm install
 npx hardhat compile
 ```
 
-No local node is required for this scenario — the attack runs on the in-process
+No local node is required for this scenario - the attack runs on the in-process
 Hardhat EVM via `npx hardhat test`.
 
 ---
 
 ## 1. Concepts
 
-- **Reentrancy** — a contract makes an external call (sending ETH) *before* it
+- **Reentrancy** - a contract makes an external call (sending ETH) *before* it
   finishes updating its own state. If the receiver is a contract, its
   `receive()`/`fallback()` can call back into the original function while the old
   state is still in place, repeating the operation many times.
-- **Checks-Effects-Interactions (CEI)** — the safe ordering: first check
+- **Checks-Effects-Interactions (CEI)** - the safe ordering: first check
   requirements, then update state (effects), and only then make external calls
   (interactions). Reentrancy is possible when *interactions* happen before *effects*.
-- **`.call{value: x}("")` vs `.transfer`** — `.transfer` forwards only 2300 gas
+- **`.call{value: x}("")` vs `.transfer`** - `.transfer` forwards only 2300 gas
   (not enough to re-enter), while `.call` forwards all remaining gas, which is
   exactly what a reentrant attack needs.
-- **Custodial context** — in peer-play the server holds users' keys, but the
+- **Custodial context** - in peer-play the server holds users' keys, but the
   blockchain node is public: the attacker deploys their own contract and calls
   `VideoStreaming` directly over JSON-RPC, bypassing the backend entirely.
 
@@ -144,7 +144,7 @@ Create **`test/reentrancy.attack.test.js`**:
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 1 — Reentrancy (attack on vulnerable contract)", function () {
+describe("Scenario 1 - Reentrancy (attack on vulnerable contract)", function () {
   it("drains the entire contract, not just the attacker's balance", async function () {
     const [deployer, honestOwner, buyerA, buyerB] = await ethers.getSigners();
 
@@ -192,7 +192,7 @@ npx hardhat test test/reentrancy.attack.test.js
 **Expected output (successful attack):**
 
 ```
-  Scenario 1 — Reentrancy (attack on vulnerable contract)
+  Scenario 1 - Reentrancy (attack on vulnerable contract)
 Contract balance before:   6.0 ETH
 Attacker legitimately owed: 1.0 ETH
 Attacker contract before:  0.0 ETH
@@ -201,7 +201,7 @@ Attacker contract after:   6.0 ETH  <-- stole 6x
     ✔ drains the entire contract, not just the attacker's balance
 ```
 
-The attacker was owed 1 ETH but walked away with 6 ETH — the honest owner's 5 ETH
+The attacker was owed 1 ETH but walked away with 6 ETH - the honest owner's 5 ETH
 was drained.
 
 > 📸 **Screenshot here (successful attack):** capture the terminal showing
@@ -212,7 +212,7 @@ was drained.
 
 ## 4. Mitigation
 
-Create **`contracts/VideoStreamingReentrancyFixed.sol`** — identical to the
+Create **`contracts/VideoStreamingReentrancyFixed.sol`** - identical to the
 vulnerable contract except `withdraw()` follows Checks-Effects-Interactions **and**
 adds a `nonReentrant` guard:
 
@@ -272,7 +272,7 @@ contract VideoStreamingReentrancyFixed {
 - The `nonReentrant` modifier is a second line of defense: any re-entrant call
   reverts immediately with `"ReentrancyGuard: reentrant call"`. Because the outer
   `withdraw()` checks `require(ok, "Transfer failed")`, that reverting re-entry
-  makes the whole withdrawal revert — the attacker gets nothing.
+  makes the whole withdrawal revert - the attacker gets nothing.
 
 ---
 
@@ -285,7 +285,7 @@ unchanged. Create **`test/reentrancy.mitigation.test.js`**:
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 1 — Reentrancy (attack blocked by fixed contract)", function () {
+describe("Scenario 1 - Reentrancy (attack blocked by fixed contract)", function () {
   it("re-entry reverts and the contract keeps its funds", async function () {
     const [deployer, honestOwner, buyerA, buyerB] = await ethers.getSigners();
 
@@ -325,7 +325,7 @@ npx hardhat test test/reentrancy.mitigation.test.js
 **Expected output (attack fails):**
 
 ```
-  Scenario 1 — Reentrancy (attack blocked by fixed contract)
+  Scenario 1 - Reentrancy (attack blocked by fixed contract)
 Contract balance before: 6.0 ETH
 Contract balance after:  6.0 ETH  <-- untouched
     ✔ re-entry reverts and the contract keeps its funds

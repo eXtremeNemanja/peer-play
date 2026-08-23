@@ -1,4 +1,4 @@
-# Scenario 4 — Integer overflow in batch `purchaseVideos()`
+# Scenario 4 - Integer overflow in batch `purchaseVideos()`
 
 > Execution guide. Follow the steps top to bottom. All paths are relative to
 > `P2P App/contract/`. Commands are copy-paste ready.
@@ -8,7 +8,7 @@ prices of several videos inside an `unchecked` block. Solidity 0.8+ reverts on
 arithmetic overflow **by default**, but `unchecked` disables that protection. An
 attacker uploads a video with a price crafted so that the batch total **wraps around
 to zero**, making `require(msg.value >= totalPrice)` pass while paying (almost)
-nothing — and thereby gaining access to other users' videos for free.
+nothing - and thereby gaining access to other users' videos for free.
 
 ## Prerequisites (once)
 
@@ -24,15 +24,15 @@ Runs under `npx hardhat test` (in-process EVM). No local node required.
 
 ## 1. Concepts
 
-- **Fixed-width integers** — `uint256` holds values from `0` to `2^256 - 1`. Adding
+- **Fixed-width integers** - `uint256` holds values from `0` to `2^256 - 1`. Adding
   past the maximum **wraps around** (modulo `2^256`), e.g. `MAX + 1 == 0`.
-- **Checked vs `unchecked` arithmetic** — since Solidity 0.8.0 arithmetic reverts on
+- **Checked vs `unchecked` arithmetic** - since Solidity 0.8.0 arithmetic reverts on
   overflow/underflow automatically. An `unchecked { ... }` block turns that off (used
-  for gas savings) — and re-introduces the classic overflow bug.
-- **The exploit idea** — if a running total is computed `unchecked`, an attacker who
+  for gas savings) - and re-introduces the classic overflow bug.
+- **The exploit idea** - if a running total is computed `unchecked`, an attacker who
   controls one of the summed values can pick it so the total overflows to a small
   number, defeating a later `require(msg.value >= total)` check.
-- **Attacker-controlled price** — `uploadVideo()` lets the caller set any `_price`,
+- **Attacker-controlled price** - `uploadVideo()` lets the caller set any `_price`,
   including values near `2^256`. That is the attacker's lever.
 
 ---
@@ -84,10 +84,10 @@ contract VideoStreamingOverflowVuln {
 ```
 
 **Why it's exploitable:** the attacker uploads a video whose price equals
-`2^256 − victimPrice`. When the batch sums `victimPrice + (2^256 − victimPrice)`, the
+`2^256 - victimPrice`. When the batch sums `victimPrice + (2^256 - victimPrice)`, the
 `unchecked` result is `2^256 ≡ 0`. `require(msg.value >= 0)` then passes with
 `msg.value == 0`, and the attacker is recorded as a purchaser of every video in the
-batch — including the victim's — for free.
+batch - including the victim's - for free.
 
 ---
 
@@ -99,7 +99,7 @@ No attacker contract is needed. Create **`test/overflow.attack.test.js`**:
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 4 — Integer overflow (attack on vulnerable contract)", function () {
+describe("Scenario 4 - Integer overflow (attack on vulnerable contract)", function () {
   it("wraps the batch total to zero and buys videos for free", async function () {
     const [deployer, victim, attacker] = await ethers.getSigners();
 
@@ -140,7 +140,7 @@ npx hardhat test test/overflow.attack.test.js
 **Expected output (successful attack):**
 
 ```
-  Scenario 4 — Integer overflow (attack on vulnerable contract)
+  Scenario 4 - Integer overflow (attack on vulnerable contract)
 Victim price: 0.1 ETH
 Evil price  : 2^256 - victimPrice  (chosen so the sum overflows to 0)
 Attacker pays: 0 ETH
@@ -206,7 +206,7 @@ contract VideoStreamingOverflowFixed {
 
 **What changed and why it works:**
 - The `unchecked { totalPrice += video.price; }` became a plain `totalPrice +=
-  video.price;`. With checked arithmetic, summing `victimPrice + (2^256 −
+  video.price;`. With checked arithmetic, summing `victimPrice + (2^256 -
   victimPrice)` overflows `uint256` and the EVM reverts with panic `0x11` **before**
   the payment check is ever reached.
 - The attacker can no longer force the total to wrap, so `require(msg.value >=
@@ -216,13 +216,13 @@ contract VideoStreamingOverflowFixed {
 
 ## 5. Failed attack on the fixed code
 
-Create **`test/overflow.mitigation.test.js`** — the identical attack now reverts.
+Create **`test/overflow.mitigation.test.js`** - the identical attack now reverts.
 
 ```javascript
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 4 — Integer overflow (blocked by checked arithmetic)", function () {
+describe("Scenario 4 - Integer overflow (blocked by checked arithmetic)", function () {
   it("the batch total overflow reverts instead of wrapping to zero", async function () {
     const [deployer, victim, attacker] = await ethers.getSigners();
 
@@ -259,7 +259,7 @@ npx hardhat test test/overflow.mitigation.test.js
 **Expected output (attack fails):**
 
 ```
-  Scenario 4 — Integer overflow (blocked by checked arithmetic)
+  Scenario 4 - Integer overflow (blocked by checked arithmetic)
 Attacker gained access to victim's video: false  <-- blocked
     ✔ the batch total overflow reverts instead of wrapping to zero
 ```

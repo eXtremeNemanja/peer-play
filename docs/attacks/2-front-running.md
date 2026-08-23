@@ -1,4 +1,4 @@
-# Scenario 2 — Front-running `uploadVideo()`
+# Scenario 2 - Front-running `uploadVideo()`
 
 > Execution guide. Follow the steps top to bottom. All paths are relative to
 > `P2P App/contract/`. Commands are copy-paste ready.
@@ -27,16 +27,16 @@ turns off automining and mines manually. It still runs under `npx hardhat test`
 
 ## 1. Concepts
 
-- **Mempool** — pending transactions wait here before being included in a block.
+- **Mempool** - pending transactions wait here before being included in a block.
   Anyone running a node can read it, so a transaction is public *before* it is mined.
-- **Gas-price ordering (EIP-1559)** — when several transactions compete for the same
+- **Gas-price ordering (EIP-1559)** - when several transactions compete for the same
   block, the node orders them by priority fee (tip); a higher tip is mined earlier.
   Front-running = watch a pending transaction, then send your own with a higher tip
   so it lands first.
-- **First-come ownership** — `uploadVideo()` does `require(videos[cid].owner ==
+- **First-come ownership** - `uploadVideo()` does `require(videos[cid].owner ==
   address(0), "Video already exists")`. The first successful call wins forever;
   there is no transfer, delete, or re-price function.
-- **Why the backend makes it worse** — the server signs and broadcasts the upload on
+- **Why the backend makes it worse** - the server signs and broadcasts the upload on
   the user's behalf, leaking the CID in the clear. The attacker doesn't need to break
   the server; they just watch the chain.
 
@@ -44,7 +44,7 @@ turns off automining and mines manually. It still runs under `npx hardhat test`
 
 ## 2. Vulnerable code
 
-Create **`contracts/VideoStreamingFrontrunVuln.sol`** — the base upload logic:
+Create **`contracts/VideoStreamingFrontrunVuln.sol`** - the base upload logic:
 
 ```solidity
 // SPDX-License-Identifier: UNLICENSED
@@ -67,21 +67,21 @@ contract VideoStreamingFrontrunVuln {
 ```
 
 **Why it's exploitable:** ownership is decided purely by transaction ordering, and
-the CID is public in the mempool. Whoever pays the higher tip becomes the owner —
+the CID is public in the mempool. Whoever pays the higher tip becomes the owner -
 irreversibly.
 
 ---
 
 ## 3. Attack
 
-No attacker contract is needed — the attacker just sends a competing transaction.
+No attacker contract is needed - the attacker just sends a competing transaction.
 Create **`test/frontrun.attack.test.js`**:
 
 ```javascript
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 2 — Front-running (attack on vulnerable contract)", function () {
+describe("Scenario 2 - Front-running (attack on vulnerable contract)", function () {
   it("attacker steals ownership by paying a higher tip", async function () {
     const [deployer, victim, attacker] = await ethers.getSigners();
 
@@ -95,13 +95,13 @@ describe("Scenario 2 — Front-running (attack on vulnerable contract)", functio
     // Stop automining so both transactions sit in the mempool together.
     await ethers.provider.send("evm_setAutomine", [false]);
 
-    // The victim (via the backend) broadcasts the upload — LOW tip.
+    // The victim (via the backend) broadcasts the upload - LOW tip.
     const victimTx = await vs.connect(victim).uploadVideo(cid, price, {
       maxPriorityFeePerGas: ethers.parseUnits("1", "gwei"),
       maxFeePerGas: ethers.parseUnits("200", "gwei"),
     });
 
-    // The attacker sees the CID in the mempool and front-runs — HIGH tip.
+    // The attacker sees the CID in the mempool and front-runs - HIGH tip.
     const attackerTx = await vs.connect(attacker).uploadVideo(cid, price, {
       maxPriorityFeePerGas: ethers.parseUnits("100", "gwei"),
       maxFeePerGas: ethers.parseUnits("200", "gwei"),
@@ -138,7 +138,7 @@ npx hardhat test test/frontrun.attack.test.js
 **Expected output (successful attack):**
 
 ```
-  Scenario 2 — Front-running (attack on vulnerable contract)
+  Scenario 2 - Front-running (attack on vulnerable contract)
 CID:               QmVictimOriginalVideo
 Victim address:    0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 Attacker address:  0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
@@ -157,7 +157,7 @@ The attacker owns the victim's CID; the victim is permanently locked out.
 
 ## 4. Mitigation
 
-Bind ownership to the uploader with a **commit–reveal** scheme. The uploader first
+Bind ownership to the uploader with a **commit-reveal** scheme. The uploader first
 publishes a hash that includes *their own address*; only later do they reveal the
 CID. A front-runner who copies the reveal cannot match the commitment because it was
 computed with the victim's address, not theirs.
@@ -204,7 +204,7 @@ contract VideoStreamingFrontrunFixed {
   recomputes the commitment with the **attacker's** address. That hash was never
   committed, so `require(commitBlock[commitment] != 0, "No matching commit")` reverts.
 - The attacker could only win by committing the same CID *earlier* with their own
-  address — but the CID is secret until the victim reveals, so they can't.
+  address - but the CID is secret until the victim reveals, so they can't.
 - `require(block.number > commitBlock[...])` forces commit and reveal into different
   blocks, closing the same-block race.
 
@@ -219,7 +219,7 @@ attacker tries to front-run the reveal and fails.
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Scenario 2 — Front-running (attack blocked by commit-reveal)", function () {
+describe("Scenario 2 - Front-running (attack blocked by commit-reveal)", function () {
   it("front-run reveal reverts; the victim keeps ownership", async function () {
     const [deployer, victim, attacker] = await ethers.getSigners();
 
@@ -281,7 +281,7 @@ npx hardhat test test/frontrun.mitigation.test.js
 **Expected output (attack fails):**
 
 ```
-  Scenario 2 — Front-running (attack blocked by commit-reveal)
+  Scenario 2 - Front-running (attack blocked by commit-reveal)
 Attacker front-run reverted: true (No matching commit)
 On-chain owner: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 (VICTIM)
     ✔ front-run reveal reverts; the victim keeps ownership

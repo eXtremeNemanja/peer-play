@@ -168,7 +168,7 @@ app.post('/login', async (req, res) => {
 app.post('/upload', authenticateToken, async (req, res) => {
 
     try {
-        const {file, filename} = req.body;
+        const {file, filename, price} = req.body;
         if (!file) return res.status(400).send('No file provided');
         if (!filename) return res.status(400).send('No filename provided');
         const { cid } = await ipfs.add(Buffer.from(file, 'base64'));
@@ -185,11 +185,17 @@ app.post('/upload', authenticateToken, async (req, res) => {
 
         const result = await queryDatabase(insertQuery, values)
 
-        const price = ethers.parseEther('0.1'); // Set a price for the video, adjust as needed
-        
+        // VULNERABLE: the price is taken from the (attacker-controlled) request body
+        // instead of a fixed 0.1 ETH. It is accepted as a raw wei value, so a huge
+        // price close to type(uint256).max can be set directly to trigger the batch
+        // overflow in purchaseVideos().
+        const priceWei = (price !== undefined && price !== null)
+            ? BigInt(price)
+            : ethers.parseEther('0.1');
+
         const signer = new ethers.Wallet(result.rows[0].private_key, provider);
-        
-        const tx = await videoStreamingContract.connect(signer).uploadVideo(result.rows[0].cid, price);
+
+        const tx = await videoStreamingContract.connect(signer).uploadVideo(result.rows[0].cid, priceWei);
         await tx.wait(); // Wait for the transaction to be mined
 
         // Respond to the client
@@ -283,6 +289,50 @@ app.put('/purchaseVideo', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Error retrieving file:', error);
         res.status(500).send('Error retrieving file');
+    }
+});
+
+// VULNERABLE: batch purchase endpoint. Forwards a list of videos and an
+// attacker-chosen msg.value to the contract's purchaseVideos(), which sums prices in
+// an unchecked block. Body: { items: [{ owner, videoName }], value } (value in wei).
+app.put('/purchaseVideos', authenticateToken, async (req, res) => {
+    try {
+        const username = req.user.username;
+
+        const { items, value } = req.body;
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).send('No items provided');
+        }
+
+        // Resolve each { owner, videoName } to its CID (same lookup as /purchaseVideo).
+        const cids = [];
+        for (const item of items) {
+            const findVideoQuery = `
+                SELECT DISTINCT cid
+                FROM video
+                WHERE owner = (SELECT id FROM users WHERE username = $1)
+                and filename = $2;`;
+            const findVideoResult = await queryDatabase(findVideoQuery, [item.owner, item.videoName]);
+            if (findVideoResult.rows.length !== 1) {
+                return res.status(404).send(`Video not found: ${item.owner}/${item.videoName}`);
+            }
+            cids.push(findVideoResult.rows[0].cid);
+        }
+
+        // Load the buyer's custodial wallet.
+        const findUserKeyResult = await queryDatabase(
+            'SELECT private_key FROM users WHERE username = $1;', [username]);
+        const userWallet = new ethers.Wallet(findUserKeyResult.rows[0].private_key, provider);
+
+        const tx = await videoStreamingContract
+            .connect(userWallet)
+            .purchaseVideos(cids, { value: BigInt(value ?? '0') });
+        await tx.wait();
+
+        res.json({ transactionHash: tx.hash, cids });
+    } catch (error) {
+        console.error('Error batch purchasing videos:', error);
+        res.status(500).send('Error batch purchasing videos');
     }
 });
 

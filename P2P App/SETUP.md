@@ -1,28 +1,29 @@
-# peer-play — Setup / how to run the project
+# peer-play - Setup / how to run the project
 
 The project's configuration files were lost. They have been reconstructed:
 
-- `app/config.js` — backend configuration (placeholders, fill before running).
-- `app/schema.sql` — PostgreSQL schema (`users`, `video` tables).
+- `app/config.js` - backend configuration (placeholders, fill before running).
+- `app/schema.sql` - PostgreSQL schema (`users`, `video` tables).
 
 This document is the full run sequence. **For the four attack scenarios you only
-need the Hardhat contract environment** (steps 1–3) — the attacker talks directly
-to the blockchain node and never touches the backend. The full stack (steps 4–7)
+need the Hardhat contract environment** (steps 1-3) - the attacker talks directly
+to the blockchain node and never touches the backend. The full stack (steps 4-7)
 is only needed to run the actual web app and requires PostgreSQL to be installed.
 
 ## Prerequisites
 - Node.js (tested with v24) and npm.
-- PostgreSQL **only for the full web app** (not installed by default here).
+- Docker (Docker Desktop) **only for the full web app** - PostgreSQL runs in a
+  container via `docker-compose.yml`; no native Postgres install needed.
 
 ---
 
-## Local files to create (git-ignored — recreate from here)
+## Local files to create (git-ignored - recreate from here)
 
 These two files are **not committed to the repo** (`app/.gitignore` blocks
 `config.js` and `**/*.sql`). Recreate them locally from the content below.
 Replace every `<PLACEHOLDER>` with a real value before running the backend.
 
-> The attack scenarios in `docs/attacks/` do **not** need these files — they only
+> The attack scenarios in `docs/attacks/` do **not** need these files - they only
 > need the Hardhat contract environment. These are required only for the full web app.
 
 ### `P2P App/app/config.js`
@@ -47,7 +48,7 @@ export const ETHERS_PROVIDER = 'http://127.0.0.1:8545';
 export const JWT_SECRET = '<JWT_SECRET_PLACEHOLDER>';
 
 // Deployed VideoStreaming address printed by scripts/deploy.js.
-// (Keeps the original typo COTRACT — missing N — to match server.js.)
+// (Keeps the original typo COTRACT - missing N - to match server.js.)
 export const COTRACT_ADDRESS = '<CONTRACT_ADDRESS_FILL_AFTER_DEPLOY>';
 
 // Path to the compiled ABI JSON bundled in app/contracts/.
@@ -114,22 +115,25 @@ npx hardhat run scripts/deploy.js --network localhost
 > the wrong path. Run `npx hardhat run scripts/deploy.js --network localhost` from
 > the `contract/` directory instead.
 
-For the attack demos you can also just use `npx hardhat test` (in-process EVM) —
+For the attack demos you can also just use `npx hardhat test` (in-process EVM) -
 no separate node is required except for the front-running scenario, which needs a
 real mempool (`npx hardhat node`). Each scenario guide in `docs/attacks/` has the
 exact commands.
 
 ---
 
-## Full web app (optional — needs PostgreSQL)
+## Full web app (needs Docker)
 
 ```bash
-# 4. Create the database and tables
-createdb peerplay
-psql -d peerplay -f "P2P App/app/schema.sql"
+# 4. Start PostgreSQL in a container (auto-creates the peerplay DB and, on first
+#    start, loads app/schema.sql). Run from the "P2P App" directory:
+cd "P2P App"
+docker compose up -d
+#    DB is now on localhost:5432  (user: postgres, password: peerplay, db: peerplay)
+#    Reset the schema from scratch:  docker compose down -v && docker compose up -d
 
 # 5. Fill in P2P App/app/config.js:
-#    - DB_CONFIG.password         -> your Postgres password
+#    - DB_CONFIG.password         -> peerplay   (matches docker-compose.yml)
 #    - JWT_SECRET                 -> any strong secret
 #    - COTRACT_ADDRESS            -> address printed by deploy in step 3b
 #    - WALLET_PRIVATE_KEYS        -> private keys printed by `hardhat node` in step 3a
