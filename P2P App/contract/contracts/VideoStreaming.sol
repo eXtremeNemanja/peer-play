@@ -66,20 +66,21 @@ contract VideoStreaming {
     // Function to purchase access to several videos in a single transaction.
     function purchaseVideos(string[] memory _ipfsHashes) public payable {
         uint256 totalPrice = 0;
-        unchecked {
-            for (uint256 i = 0; i < _ipfsHashes.length; i++) {
-                Video storage video = videos[_ipfsHashes[i]];
-                require(video.isAvailable, "Video is not available");
-                totalPrice += video.price;
+        for (uint256 i = 0; i < _ipfsHashes.length; ) {
+            Video storage video = videos[_ipfsHashes[i]];
+            require(video.isAvailable, "Video is not available");
+            totalPrice += video.price;
+            unchecked {
+                i++;
             }
         }
 
         require(msg.value >= totalPrice, "Insufficient payment");
-        unchecked {
-            for (uint256 i = 0; i < _ipfsHashes.length; ) {
-                videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
-                emit VideoPurchased(_ipfsHashes[i], msg.sender);
-                    i++;
+        for (uint256 i = 0; i < _ipfsHashes.length; ) {
+            videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
+            emit VideoPurchased(_ipfsHashes[i], msg.sender);
+                unchecked {
+                i++;
             }
         }
     }

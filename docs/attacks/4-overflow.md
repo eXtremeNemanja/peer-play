@@ -148,39 +148,24 @@ total overflows, the transaction reverts automatically (panic code `0x11`,
 Create **`contracts/VideoStreamingOverflowFixed.sol`**:
 
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.24;
-
-contract VideoStreamingOverflowFixed {
-    struct Video { string ipfsHash; address owner; uint256 price; bool isAvailable; }
-
-    mapping(string => Video) public videos;
-    mapping(address => uint256) public balances;
-    mapping(string => mapping(address => bool)) public videoPurchasers;
-
-    event VideoUploaded(string ipfsHash, address owner, uint256 price);
-    event VideoPurchased(string ipfsHash, address buyer);
-
-    function uploadVideo(string memory _ipfsHash, uint256 _price) public {
-        require(videos[_ipfsHash].owner == address(0), "Video already exists");
-        videos[_ipfsHash] = Video(_ipfsHash, msg.sender, _price, true);
-        emit VideoUploaded(_ipfsHash, msg.sender, _price);
+// Function to purchase access to several videos in a single transaction.
+function purchaseVideos(string[] memory _ipfsHashes) public payable {
+    uint256 totalPrice = 0;
+    for (uint256 i = 0; i < _ipfsHashes.length; ) {
+        Video storage video = videos[_ipfsHashes[i]];
+        require(video.isAvailable, "Video is not available");
+        totalPrice += video.price;
+        unchecked {
+            i++;
+        }
     }
 
-    // FIXED: no `unchecked` -> overflow reverts automatically (Solidity 0.8+).
-    function purchaseVideos(string[] memory _ipfsHashes) public payable {
-        uint256 totalPrice = 0;
-        for (uint256 i = 0; i < _ipfsHashes.length; i++) {
-            Video storage video = videos[_ipfsHashes[i]];
-            require(video.isAvailable, "Video is not available");
-            totalPrice += video.price; // checked arithmetic: reverts on overflow
-        }
-
-        require(msg.value >= totalPrice, "Insufficient payment");
-
-        for (uint256 i = 0; i < _ipfsHashes.length; i++) {
-            videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
-            emit VideoPurchased(_ipfsHashes[i], msg.sender);
+    require(msg.value >= totalPrice, "Insufficient payment");
+    for (uint256 i = 0; i < _ipfsHashes.length; ) {
+        videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
+        emit VideoPurchased(_ipfsHashes[i], msg.sender);
+            unchecked {
+            i++;
         }
     }
 }
