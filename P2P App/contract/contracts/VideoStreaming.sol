@@ -64,12 +64,6 @@ contract VideoStreaming {
     }
 
     // Function to purchase access to several videos in a single transaction.
-    // VULNERABLE: the whole summing loop is wrapped in `unchecked` to save gas on the
-    // `i++` counter increment. That is a common optimization, but wrapping the *entire*
-    // loop also disables overflow checking on `totalPrice += video.price`. Because any
-    // uploader can set an arbitrary price, an attacker can upload a video whose price is
-    // close to type(uint256).max so the sum wraps around to a small number, and the
-    // payment check below passes for almost nothing.
     function purchaseVideos(string[] memory _ipfsHashes) public payable {
         uint256 totalPrice = 0;
         unchecked {
@@ -81,12 +75,11 @@ contract VideoStreaming {
         }
 
         require(msg.value >= totalPrice, "Insufficient payment");
-
-        for (uint256 i = 0; i < _ipfsHashes.length; ) {
-            videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
-            emit VideoPurchased(_ipfsHashes[i], msg.sender);
-            unchecked {
-                i++;
+        unchecked {
+            for (uint256 i = 0; i < _ipfsHashes.length; ) {
+                videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
+                emit VideoPurchased(_ipfsHashes[i], msg.sender);
+                    i++;
             }
         }
     }

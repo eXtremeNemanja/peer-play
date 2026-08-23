@@ -1,15 +1,3 @@
-// Integer-overflow attack - DIRECT on the contract (bypasses the API/server).
-//
-// The attacker connects straight to the blockchain and calls the vulnerable
-// batch function purchaseVideos(), whose price sum is computed inside an
-// `unchecked` block. By uploading a video whose price is (2^256 - victimPrice),
-// the batch total wraps around uint256 to 0, so the payment check passes for 0 ETH
-// and the attacker gains access to the victim's paid video for free.
-//
-// Run (self-contained - deploys its own fresh instance):
-//   npx hardhat run scripts/attacks/overflow-direct.js --network localhost
-// (also works in-process without --network localhost)
-
 const hre = require("hardhat");
 const { ethers } = hre;
 

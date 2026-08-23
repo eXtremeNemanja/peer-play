@@ -43,41 +43,23 @@ Create **`contracts/VideoStreamingOverflowVuln.sol`**. Note the `unchecked` bloc
 around the price accumulation:
 
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.24;
-
-contract VideoStreamingOverflowVuln {
-    struct Video { string ipfsHash; address owner; uint256 price; bool isAvailable; }
-
-    mapping(string => Video) public videos;
-    mapping(address => uint256) public balances;
-    mapping(string => mapping(address => bool)) public videoPurchasers;
-
-    event VideoUploaded(string ipfsHash, address owner, uint256 price);
-    event VideoPurchased(string ipfsHash, address buyer);
-
-    function uploadVideo(string memory _ipfsHash, uint256 _price) public {
-        require(videos[_ipfsHash].owner == address(0), "Video already exists");
-        videos[_ipfsHash] = Video(_ipfsHash, msg.sender, _price, true);
-        emit VideoUploaded(_ipfsHash, msg.sender, _price);
-    }
-
-    // VULNERABLE: totalPrice is summed inside `unchecked`, so it can overflow.
-    function purchaseVideos(string[] memory _ipfsHashes) public payable {
-        uint256 totalPrice = 0;
+function purchaseVideos(string[] memory _ipfsHashes) public payable {
+    uint256 totalPrice = 0;
+    unchecked {
         for (uint256 i = 0; i < _ipfsHashes.length; i++) {
             Video storage video = videos[_ipfsHashes[i]];
             require(video.isAvailable, "Video is not available");
-            unchecked {
-                totalPrice += video.price; // <-- can wrap around 2^256
-            }
+            totalPrice += video.price;
         }
+    }
 
-        require(msg.value >= totalPrice, "Insufficient payment"); // bypassed by overflow
+    require(msg.value >= totalPrice, "Insufficient payment");
 
-        for (uint256 i = 0; i < _ipfsHashes.length; i++) {
-            videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
-            emit VideoPurchased(_ipfsHashes[i], msg.sender);
+    for (uint256 i = 0; i < _ipfsHashes.length; ) {
+        videoPurchasers[_ipfsHashes[i]][msg.sender] = true;
+        emit VideoPurchased(_ipfsHashes[i], msg.sender);
+        unchecked {
+            i++;
         }
     }
 }
