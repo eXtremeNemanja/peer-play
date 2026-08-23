@@ -47,22 +47,18 @@ turns off automining and mines manually. It still runs under `npx hardhat test`
 Create **`contracts/VideoStreamingFrontrunVuln.sol`** - the base upload logic:
 
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.24;
+// Function to upload a new video
+function uploadVideo(string memory _ipfsHash, uint256 _price) public {
+    require(videos[_ipfsHash].owner == address(0), "Video already exists");
 
-contract VideoStreamingFrontrunVuln {
-    struct Video { string ipfsHash; address owner; uint256 price; bool isAvailable; }
+    videos[_ipfsHash] = Video({
+        ipfsHash: _ipfsHash,
+        owner: msg.sender,
+        price: _price,
+        isAvailable: true
+    });
 
-    mapping(string => Video) public videos;
-
-    event VideoUploaded(string ipfsHash, address owner, uint256 price);
-
-    // VULNERABLE: no ownership proof; first caller to a CID wins it permanently.
-    function uploadVideo(string memory _ipfsHash, uint256 _price) public {
-        require(videos[_ipfsHash].owner == address(0), "Video already exists");
-        videos[_ipfsHash] = Video(_ipfsHash, msg.sender, _price, true);
-        emit VideoUploaded(_ipfsHash, msg.sender, _price);
-    }
+    emit VideoUploaded(_ipfsHash, msg.sender, _price);
 }
 ```
 
@@ -138,13 +134,43 @@ npx hardhat test test/frontrun.attack.test.js
 **Expected output (successful attack):**
 
 ```
-  Scenario 2 - Front-running (attack on vulnerable contract)
-CID:               QmVictimOriginalVideo
-Victim address:    0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-Attacker address:  0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
-On-chain owner:    0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC (ATTACKER)
-Victim tx reverted: true (Video already exists)
-    ✔ attacker steals ownership by paying a higher tip
+=== Front-running - direct contract attack ===
+
+VideoStreaming deployed at: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+Victim  : 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+Attacker: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+
+Victim wants to register CID "QmVictimOriginalVideo" @ 0.1 ETH
+
+Victim broadcast uploadVideo(cid) with tip = 1 gwei (pending in mempool)
+Attacker sees the CID and front-runs uploadVideo(cid) with tip = 100 gwei
+
+Mining the mempool (ordered by tip) ...
+
+--- Result ---
+On-chain owner of the CID: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC (ATTACKER)
+Victim tx reverted       : true (Video already exists)
+
+Attack succeeded - the attacker stole ownership of the victim's CID.
+The attacker now collects every purchase payment for that video.
+```
+
+```
+=== Front-running - attack through the API ===
+
+Registered + logged in: victim
+Attacker wallet: 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc (not a custodial account)
+
+Victim calls POST /upload (backend broadcasts uploadVideo to the mempool) ...
+Attacker read the pending CID from the mempool: QmVFXbdzcufPEAwKcAnAdphnN93PPLMdD7NWJNWzJvQXyy
+Attacker submits uploadVideo(cid) directly with tip = 100 gwei ...
+
+--- Result ---
+Victim POST /upload status: 500 (upload failed)
+On-chain owner of the CID : 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc (ATTACKER)
+
+Attack succeeded - the attacker stole the CID through the public mempool.
+The victim's upload reverted; the attacker now owns the video on-chain.
 ```
 
 The attacker owns the victim's CID; the victim is permanently locked out.
